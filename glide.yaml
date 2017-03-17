@@ -1,0 +1,10 @@
+package: github.com/SageAxcess/untitled
+import:
+- package: github.com/hashicorp/vault
+  version: ^0.7.0-beta1
+  subpackages:
+  - api
+- package: github.com/robfig/cron
+  version: ^1.0.0
+- package: github.com/xanzy/go-gitlab
+  version: ^0.4.0
