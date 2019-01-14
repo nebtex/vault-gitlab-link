@@ -1,4 +1,4 @@
-package: github.com/SageAxcess/untitled
+package: github.com/nebtex/vault-gitlab-link
 import:
 - package: github.com/hashicorp/vault
   version: ^0.7.0-beta1

@@ -1,23 +1,24 @@
 package main
 
 /**
-	this program creates vault tokens and store them periodically in the build variables
-	of your gitlab repos
-	
-	you need to use a vault client to be able to read secrets on your pipelines
- */
+this program creates vault tokens and store them periodically in the build variables
+of your gitlab repos
+
+you need to use a vault client to be able to read secrets on your pipelines
+*/
 
 import (
-	vault "github.com/hashicorp/vault/api"
-	"github.com/robfig/cron"
-	"github.com/xanzy/go-gitlab"
-	"strings"
-	"github.com/Sirupsen/logrus"
-	"time"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
+	"time"
+
+	vault "github.com/hashicorp/vault/api"
+	"github.com/robfig/cron"
+	"github.com/sirupsen/logrus"
+	gitlab "github.com/xanzy/go-gitlab"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func CheckPanic(err error) {
@@ -26,7 +27,7 @@ func CheckPanic(err error) {
 	}
 }
 
-func (gs *GlobalSpec)Load(file string) {
+func (gs *GlobalSpec) Load(file string) {
 	data, err := ioutil.ReadFile(file)
 	CheckPanic(err)
 	err = yaml.Unmarshal(data, gs)
@@ -37,11 +38,11 @@ func (gs *GlobalSpec)Load(file string) {
 	if gs.Default.RepositorySpec.BuildKey == "" {
 		panic("BuildKey should be present in the default spec")
 	}
-	
+
 	if gs.Default.RepositorySpec.Enabled == nil {
 		panic("Enabled should be present in the default spec")
 	}
-	
+
 	if gs.Default.RepositorySpec.RenewPeriod == "" {
 		panic("RenewPeriod should be present in the default spec")
 	}
@@ -53,7 +54,7 @@ func (gs *GlobalSpec)Load(file string) {
 	if gs.Groups == nil {
 		return
 	}
-	
+
 	for _, group := range gs.Groups {
 		if group.Default.RepositorySpec == nil {
 			group.Default.RepositorySpec = gs.Default.RepositorySpec
@@ -94,7 +95,7 @@ func (gs *GlobalSpec)Load(file string) {
 	}
 }
 
-func (gs *GlobalSpec)GetSpecForPath(path string) *LinkSpec {
+func (gs *GlobalSpec) GetSpecForPath(path string) *LinkSpec {
 	parts := strings.Split(path, "/")
 	groupName, projectName := parts[0], parts[1]
 	ls := gs.Default
@@ -118,8 +119,8 @@ func GetDefaultGitlabConfig() GitlabConfig {
 	if be != "" {
 		baseUrl = be
 	}
-	
-	return GitlabConfig{BaseUrl:baseUrl, Token: os.Getenv("GITLAB_TOKEN")}
+
+	return GitlabConfig{BaseUrl: baseUrl, Token: os.Getenv("GITLAB_TOKEN")}
 }
 func init() {
 	Cron = cron.New()
@@ -140,7 +141,7 @@ func (gs *GlobalSpec) UpdateCron(gc *gitlab.Client, vc *vault.Client) {
 	for _, group := range groups {
 		projects, _, err := gc.Groups.ListGroupProjects(group.ID, nil)
 		CheckError(err)
-		
+
 		for _, project := range projects {
 			path := project.PathWithNamespace
 			link := gs.GetSpecForPath(path)
@@ -158,8 +159,8 @@ func (gs *GlobalSpec) UpdateCron(gc *gitlab.Client, vc *vault.Client) {
 				return
 			}
 			UpdateToken(gc, project.ID, link.RepositorySpec.BuildKey, secret.Auth.ClientToken)
-			
-			Cron.AddFunc("@every " + link.RepositorySpec.RenewPeriod, func() {
+
+			Cron.AddFunc("@every "+link.RepositorySpec.RenewPeriod, func() {
 				secret, vaultErr := vc.Auth().Token().Create(link.TokenSpec)
 				if vaultErr != nil {
 					logrus.Error(vaultErr)
@@ -176,16 +177,16 @@ func UpdateToken(gc *gitlab.Client, projectId int, buildKey string, token string
 	_, _, err := gc.BuildVariables.UpdateBuildVariable(projectId, buildKey, token)
 	CheckError(err)
 	if err == nil {
-		logrus.Info(buildKey + " Updated for project " +  strconv.Itoa(projectId))
+		logrus.Info(buildKey + " Updated for project " + strconv.Itoa(projectId))
 	}
 	if err != nil {
 		//try to create the variable
 		_, _, err := gc.BuildVariables.CreateBuildVariable(projectId, buildKey, token)
 		CheckError(err)
 		if err == nil {
-			logrus.Info(buildKey + " Created for project " +  strconv.Itoa(projectId))
+			logrus.Info(buildKey + " Created for project " + strconv.Itoa(projectId))
 		}
-		
+
 	}
 }
 
@@ -193,16 +194,16 @@ func main() {
 	//Get vault client
 	vc, err := vault.NewClient(vault.DefaultConfig())
 	CheckPanic(err)
-	
+
 	//Get gitlab Client
 	git := gitlab.NewClient(nil, DefaultGitlabConfig.Token)
 	git.SetBaseURL(DefaultGitlabConfig.BaseUrl)
-	
+
 	//Start cron
 	Cron.Start()
 	gs := &GlobalSpec{}
 	gs.Load(os.Getenv("VGL_CONFIG_PATH"))
-	
+
 	for {
 		gs.UpdateCron(git, vc)
 		//update the list of repo each 5 min
